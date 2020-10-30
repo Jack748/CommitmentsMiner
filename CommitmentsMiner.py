@@ -2,28 +2,33 @@ import pandas as pd
 from pm4py.objects.log.util import dataframe_utils
 from pm4py.objects.conversion.log import converter as log_converter
 
-log_csv = pd.read_csv('totale.csv', sep=',')
+log_csv = pd.read_csv('eventLog-NetBill.csv', sep=',')
 log_csv = dataframe_utils.convert_timestamp_columns_in_df(log_csv)
 log_csv = log_csv.sort_values('TIMESTAMP')
 log_csv.rename(columns={'ACTIVITY': 'concept:name'}, inplace=True)
 parameters = {log_converter.Variants.TO_EVENT_LOG.value.Parameters.CASE_ID_KEY: 'NEWCASEID'}
 log = log_converter.apply(log_csv, parameters=parameters, variant=log_converter.Variants.TO_EVENT_LOG)
 
+from pm4py.objects.log.exporter.xes import exporter as xes_exporter
+xes_exporter.apply(log, 'coooo.xes')
 
-from pm4py.algo.discovery.heuristics import factory as heuristics_miner
+from pm4py.algo.discovery.heuristics import algorithm as heuristics_miner
 heu_net = heuristics_miner.apply_heu(log)
+#parameters={heuristics_miner.Variants.CLASSIC.value.Parameters.DEPENDENCY_THRESH: 0.9}
+#parameters={heuristics_miner.Variants.CLASSIC.value.Parameters.MIN_DFG_OCCURRENCES: 12}
+
 
 #visualization of the heuristic net
-# from pm4py.visualization.heuristics_net import visualizer as hn_visualizer
-# gviz = hn_visualizer.apply(heu_net)
-# hn_visualizer.view(gviz)
+from pm4py.visualization.heuristics_net import visualizer as hn_visualizer
+gviz = hn_visualizer.apply(heu_net)
+hn_visualizer.view(gviz)
 
 #obtaining resource of an activity
 def get_resource(activity):
     for trace in log:
         for event in trace:
             if event["concept:name"] == activity:
-                return event["RESOURCE"].strip()
+                return event["RESOURCE"].strip()[:-1]
 
 #creating the list of the dependencies of the activities with the correspondent resources
 dep_list = []
@@ -53,7 +58,7 @@ def check_not_final(activity):
 #note that debtor and creditor, for now, can be the same
 ccs = []
 for dep in dep_list:
-    if  dep[4] > 0.8 and check_not_final(dep[0]):
+    if  dep[4] > 0.80 and check_not_final(dep[0]) and dep[0] != dep[2]:
         ccs.append([dep[3], dep[1], dep[0], dep[2]])
         #cc(debtor, creditor, antecedent, consequent)
 
@@ -66,8 +71,8 @@ for cc in ccs:
 add_ccs = []
 for cc1 in ccs:
     for cc2 in ccs:
-        if cc1 != cc2 and cc1[2] == cc2[2] and cc1[3] != cc2[3]:
-        #antecedent equal but consequent different
+        if cc1 != cc2 and cc1[2] == cc2[2] and cc1[3] != cc2[3] and cc1[0] == cc2[0]:
+        #antecedent equal and consequent different and consequent executed by same resource
             add_ccs.append([cc1[0], cc1[1], cc1[2], "(" + cc1[3] + " V " + cc2[3] + ")"])
             ccs.remove(cc1)
             ccs.remove(cc2)
