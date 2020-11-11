@@ -2,7 +2,7 @@ import pandas as pd
 from pm4py.objects.log.util import dataframe_utils
 from pm4py.objects.conversion.log import converter as log_converter
 
-log_csv = pd.read_csv('eventLog-NetBill.csv', sep=',')
+log_csv = pd.read_csv('totale.csv', sep=',')
 log_csv = dataframe_utils.convert_timestamp_columns_in_df(log_csv)
 log_csv = log_csv.sort_values('TIMESTAMP')
 log_csv.rename(columns={'ACTIVITY': 'concept:name'}, inplace=True)
@@ -10,13 +10,12 @@ parameters = {log_converter.Variants.TO_EVENT_LOG.value.Parameters.CASE_ID_KEY: 
 log = log_converter.apply(log_csv, parameters=parameters, variant=log_converter.Variants.TO_EVENT_LOG)
 
 from pm4py.objects.log.exporter.xes import exporter as xes_exporter
-xes_exporter.apply(log, 'coooo.xes')
+xes_exporter.apply(log, 'log.xes')
 
 from pm4py.algo.discovery.heuristics import algorithm as heuristics_miner
 heu_net = heuristics_miner.apply_heu(log)
 #parameters={heuristics_miner.Variants.CLASSIC.value.Parameters.DEPENDENCY_THRESH: 0.9}
 #parameters={heuristics_miner.Variants.CLASSIC.value.Parameters.MIN_DFG_OCCURRENCES: 12}
-
 
 #visualization of the heuristic net
 from pm4py.visualization.heuristics_net import visualizer as hn_visualizer
@@ -45,7 +44,6 @@ for dep in dep_list:
 number_of_final_activities = 0
 for key in heu_net.end_activities[0].keys():
     number_of_final_activities += heu_net.end_activities[0][key]
-
 #used to check if an activity is not in more than 5% of the finals ones
 def check_not_final(activity):
     if activity in heu_net.end_activities[0].keys():
@@ -77,8 +75,7 @@ for cc1 in ccs:
             ccs.remove(cc1)
             ccs.remove(cc2)
 
-for cc in add_ccs:
-    ccs.append(cc)
+ccs = ccs + add_ccs
 
 print("\nCOMMITMENTS WITH OR:")
 for cc in ccs:
